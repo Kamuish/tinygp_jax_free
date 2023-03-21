@@ -31,7 +31,6 @@ The details for the included solvers are given below, but this is a pretty
 low-level feature and the details are definitely subject to change!
 """
 
-__all__ = ["DirectSolver", "QuasisepSolver"]
+__all__ = ["QuasisepSolver"]
 
-from tinygp.solvers.direct import DirectSolver
-from tinygp.solvers.quasisep import QuasisepSolver
+from src.tinygp.solvers.quasisep import QuasisepSolver

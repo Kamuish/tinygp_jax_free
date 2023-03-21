@@ -15,14 +15,9 @@ __all__ = ["Diagonal", "Dense", "Banded"]
 from abc import ABCMeta, abstractmethod
 from typing import TYPE_CHECKING, Any, Tuple, Union
 
-import jax.numpy as jnp
 import numpy as np
 
-from tinygp.helpers import JAXArray, dataclass
-
-if TYPE_CHECKING:
-    from tinygp.solvers.quasisep.core import DiagQSM, SymmQSM
-
+from src.tinygp.helpers import JAXArray, dataclass
 
 class Noise(metaclass=ABCMeta):
     """An abstract base class defining the noise model protocol"""
@@ -69,7 +64,7 @@ class Diagonal(Noise):
     diag: JAXArray
 
     def __post_init__(self) -> None:
-        if jnp.ndim(self.diag) != 1:
+        if np.ndim(self.diag) != 1:
             raise ValueError(
                 "The diagonal for the noise model be the same shape as the data; "
                 "if passing a constant, it should be broadcasted first"
@@ -80,8 +75,8 @@ class Diagonal(Noise):
 
     def _add(self, other: JAXArray) -> JAXArray:
         return (
-            jnp.asarray(other)
-            .at[jnp.diag_indices(other.shape[0])]
+            np.asarray(other)
+            .at[np.diag_indices(other.shape[0])]
             .add(self.diag)
         )
 
@@ -92,13 +87,13 @@ class Diagonal(Noise):
         return self._add(other)
 
     def __matmul__(self, other: JAXArray) -> JAXArray:
-        if jnp.ndim(other) == 1:
+        if np.ndim(other) == 1:
             return self.diag * other
         else:
             return self.diag[:, None] * other
 
     def to_qsm(self) -> "DiagQSM":
-        from tinygp.solvers.quasisep.core import DiagQSM
+        from src.tinygp.solvers.quasisep.core import DiagQSM
 
         return DiagQSM(d=self.diag)
 
@@ -117,7 +112,7 @@ class Dense(Noise):
     value: JAXArray
 
     def diagonal(self) -> JAXArray:
-        return jnp.diag(self.value)
+        return np.diag(self.value)
 
     def __add__(self, other: JAXArray) -> JAXArray:
         return self.value + other
@@ -185,8 +180,8 @@ class Banded(Noise):
 
     def _indices(
         self,
-    ) -> Tuple[Tuple[JAXArray, JAXArray], Tuple[JAXArray, JAXArray]]:
-        N, J = jnp.shape(self.off_diags)
+    ):
+        N, J = np.shape(self.off_diags)
         sparse_idx_1 = []
         sparse_idx_2 = []
         dense_idx_1 = []
@@ -207,8 +202,8 @@ class Banded(Noise):
 
         # Start by adding the diagonal
         result = (
-            jnp.asarray(other)
-            .at[jnp.diag_indices(other.shape[0])]
+            np.asarray(other)
+            .at[np.diag_indices(other.shape[0])]
             .add(self.diag)
         )
 
@@ -239,10 +234,10 @@ class Banded(Noise):
     def to_qsm(self) -> "SymmQSM":
         from tinygp.solvers.quasisep import core
 
-        N, J = jnp.shape(self.off_diags)
-        p = jnp.repeat(jnp.eye(1, J), N, axis=0)
+        N, J = np.shape(self.off_diags)
+        p = np.repeat(np.eye(1, J), N, axis=0)
         q = self.off_diags
-        a = jnp.repeat(jnp.eye(J, k=1)[None], N, axis=0)
+        a = np.repeat(np.eye(J, k=1)[None], N, axis=0)
         return core.SymmQSM(
             diag=core.DiagQSM(d=self.diag),
             lower=core.StrictLowerTriQSM(p=p, q=q, a=a),

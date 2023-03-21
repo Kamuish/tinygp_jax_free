@@ -20,10 +20,9 @@ __all__ = ["GeneralQSM"]
 from functools import wraps
 from typing import TYPE_CHECKING, Any, Callable, Tuple
 
-import jax
-import jax.numpy as jnp
+import numpy as np
 
-from tinygp.helpers import JAXArray, dataclass
+from src.tinygp.helpers import JAXArray, dataclass
 
 
 def handle_matvec_shapes(
@@ -51,12 +50,12 @@ class GeneralQSM:
         idx (n1,): The indices of the diagonal.
     """
 
-    pl: JAXArray
-    ql: JAXArray
-    pu: JAXArray
-    qu: JAXArray
-    a: JAXArray
-    idx: JAXArray
+    pl: np.ndarray
+    ql: np.ndarray
+    pu: np.ndarray
+    qu: np.ndarray
+    a: np.ndarray
+    idx: np.ndarray
 
     if TYPE_CHECKING:
 
@@ -68,7 +67,7 @@ class GeneralQSM:
         """The shape of the matrix"""
         return (self.pl.shape[0], self.ql.shape[0])
 
-    @jax.jit
+
     @handle_matvec_shapes
     def matmul(self, x: JAXArray) -> JAXArray:
         """The dot product of this matrix with a dense vector or matrix
@@ -81,31 +80,31 @@ class GeneralQSM:
         # Use a forward pass to dot the "lower" matrix
         def forward(f, data):  # type: ignore
             q, a, x = data
-            fn = a @ f + jnp.outer(q, x)
+            fn = a @ f + np.outer(q, x)
             return fn, fn
 
-        init = jnp.zeros_like(jnp.outer(self.ql[0], x[0]))
+        init = np.zeros_like(np.outer(self.ql[0], x[0]))
         _, f = jax.lax.scan(forward, init, (self.ql, self.a, x))
-        idx = jnp.clip(self.idx, 0, f.shape[0] - 1)
-        mask = jnp.logical_and(self.idx >= 0, self.idx < f.shape[0])
-        lower = jax.vmap(jnp.dot)(jnp.where(mask[:, None], self.pl, 0), f[idx])
+        idx = np.clip(self.idx, 0, f.shape[0] - 1)
+        mask = np.logical_and(self.idx >= 0, self.idx < f.shape[0])
+        lower = jax.vmap(jnp.dot)(np.where(mask[:, None], self.pl, 0), f[idx])
 
         # Then a backward pass to apply the "upper" matrix
         def backward(f, data):  # type: ignore
             p, a, x = data
-            fn = a.T @ f + jnp.outer(p, x)
+            fn = a.T @ f + np.outer(p, x)
             return fn, fn
 
-        init = jnp.zeros_like(jnp.outer(self.pu[-1], x[-1]))
+        init = np.zeros_like(np.outer(self.pu[-1], x[-1]))
         _, f = jax.lax.scan(
             backward,
             init,
-            (self.pu, jnp.roll(self.a, -1, axis=0), x),
+            (self.pu, np.roll(self.a, -1, axis=0), x),
             reverse=True,
         )
-        idx = jnp.clip(self.idx + 1, 0, f.shape[0] - 1)
-        mask = jnp.logical_and(self.idx >= -1, self.idx < f.shape[0] - 1)
-        upper = jax.vmap(jnp.dot)(jnp.where(mask[:, None], self.qu, 0), f[idx])
+        idx = np.clip(self.idx + 1, 0, f.shape[0] - 1)
+        mask = np.logical_and(self.idx >= -1, self.idx < f.shape[0] - 1)
+        upper = jax.vmap(jnp.dot)(np.where(mask[:, None], self.qu, 0), f[idx])
 
         return lower + upper
 

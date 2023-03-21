@@ -21,12 +21,11 @@ from abc import ABCMeta, abstractmethod
 from functools import wraps
 from typing import Any, Callable, Tuple
 
-import jax
-import jax.numpy as jnp
 import numpy as np
-from jax.scipy.linalg import block_diag
+import numpy as np
+# from jax.scipy.linalg import block_diag
 
-from tinygp.helpers import JAXArray, dataclass
+from src.tinygp.helpers import JAXArray, dataclass
 
 
 def handle_matvec_shapes(
@@ -35,8 +34,8 @@ def handle_matvec_shapes(
     @wraps(func)
     def wrapped(self: Any, x: JAXArray) -> JAXArray:
         output_shape = x.shape
-        result = func(self, jnp.reshape(x, (output_shape[0], -1)))
-        return jnp.reshape(result, output_shape)
+        result = func(self, np.reshape(x, (output_shape[0], -1)))
+        return np.reshape(result, output_shape)
 
     return wrapped
 
@@ -86,7 +85,7 @@ class QSM(metaclass=ABCMeta):
         This implementation is not optimized and should really only ever be used
         for testing purposes.
         """
-        return self.matmul(jnp.eye(self.shape[0]))
+        return self.matmul(np.eye(self.shape[0]))
 
     @property
     def shape(self) -> Tuple[int, int]:
@@ -97,33 +96,28 @@ class QSM(metaclass=ABCMeta):
     def __iter__(self):  # type: ignore
         return self.iter_elems()  # type: ignore
 
-    @jax.jit
     def __sub__(self, other: Any) -> Any:
         return self.__add__(-other)
 
-    @jax.jit
     def __add__(self, other: Any) -> Any:
-        from tinygp.solvers.quasisep.ops import elementwise_add
+        from src.tinygp.solvers.quasisep.ops import elementwise_add
 
         return elementwise_add(self, other)
 
-    @jax.jit
     def __mul__(self, other: Any) -> Any:
         if isinstance(other, QSM):
-            from tinygp.solvers.quasisep.ops import elementwise_mul
+            from src.tinygp.solvers.quasisep.ops import elementwise_mul
 
             return elementwise_mul(self, other)
         else:
-            assert jnp.ndim(other) <= 1
+            assert np.ndim(other) <= 1
             return self.scale(other)
 
-    @jax.jit
     def __rmul__(self, other: Any) -> Any:
         assert not isinstance(other, QSM)
-        assert jnp.ndim(other) <= 1
+        assert np.ndim(other) <= 1
         return self.scale(other)
 
-    @jax.jit
     def __matmul__(self, other: Any) -> Any:
         if isinstance(other, QSM):
             from tinygp.solvers.quasisep.ops import qsm_mul
@@ -132,7 +126,6 @@ class QSM(metaclass=ABCMeta):
         else:
             return self.matmul(other)
 
-    @jax.jit
     def __rmatmul__(self, other: Any) -> Any:
         assert not isinstance(other, QSM)
         return (self.transpose() @ other.transpose()).transpose()
@@ -146,7 +139,7 @@ class DiagQSM(QSM):
         d (n,): The diagonal entries of the matrix as a 1-D array.
     """
 
-    d: JAXArray
+    d: np.ndarray
 
     @property
     def shape(self) -> Tuple[int, int]:
@@ -157,10 +150,10 @@ class DiagQSM(QSM):
         return self
 
     @handle_matvec_shapes
-    def matmul(self, x: JAXArray) -> JAXArray:
+    def matmul(self, x: np.ndarray) -> np.ndarray:
         return self.d[:, None] * x
 
-    def scale(self, other: JAXArray) -> "DiagQSM":
+    def scale(self, other: np.ndarray) -> "DiagQSM":
         return DiagQSM(d=self.d * other)
 
     def self_add(self, other: "DiagQSM") -> "DiagQSM":
@@ -185,9 +178,9 @@ class StrictLowerTriQSM(QSM):
         a (n, m, m): The transition matrices.
     """
 
-    p: JAXArray
-    q: JAXArray
-    a: JAXArray
+    p: np.ndarray
+    q: np.ndarray
+    a: np.ndarray
 
     @property
     def shape(self) -> Tuple[int, int]:
@@ -197,18 +190,17 @@ class StrictLowerTriQSM(QSM):
     def transpose(self) -> "StrictUpperTriQSM":
         return StrictUpperTriQSM(p=self.p, q=self.q, a=self.a)
 
-    @jax.jit
     @handle_matvec_shapes
-    def matmul(self, x: JAXArray) -> JAXArray:
+    def matmul(self, x: np.ndarray) -> np.ndarray:
         def impl(f, data):  # type: ignore
             q, a, x = data
-            return a @ f + jnp.outer(q, x), f
+            return a @ f + np.outer(q, x), f
 
-        init = jnp.zeros_like(jnp.outer(self.q[0], x[0]))
+        init = np.zeros_like(np.outer(self.q[0], x[0]))
         _, f = jax.lax.scan(impl, init, (self.q, self.a, x))
         return jax.vmap(jnp.dot)(self.p, f)
 
-    def scale(self, other: JAXArray) -> "StrictLowerTriQSM":
+    def scale(self, other: np.ndarray) -> "StrictLowerTriQSM":
         return StrictLowerTriQSM(p=self.p * other, q=self.q, a=self.a)
 
     def self_add(self, other: "StrictLowerTriQSM") -> "StrictLowerTriQSM":
@@ -274,7 +266,6 @@ class StrictUpperTriQSM(QSM):
     def transpose(self) -> "StrictLowerTriQSM":
         return StrictLowerTriQSM(p=self.p, q=self.q, a=self.a)
 
-    @jax.jit
     @handle_matvec_shapes
     def matmul(self, x: JAXArray) -> JAXArray:
         def impl(f, data):  # type: ignore
@@ -335,7 +326,7 @@ class LowerTriQSM(QSM):
             diag=DiagQSM(g), lower=StrictLowerTriQSM(p=u, q=v, a=b)
         )
 
-    @jax.jit
+        
     @handle_matvec_shapes
     def solve(self, y: JAXArray) -> JAXArray:
         """Solve a linear system with this matrix
@@ -348,14 +339,21 @@ class LowerTriQSM(QSM):
                 matrix.
         """
 
-        def impl(fn, data):  # type: ignore
-            ((cn,), (pn, wn, an)), yn = data
-            xn = (yn - pn @ fn) / cn
-            return an @ fn + jnp.outer(wn, xn), xn
+        init = np.zeros_like(np.outer(self.lower.q[0], y[0]))
+        x = []
+        fn = init
+        for index in range(y.size):
+            ((cn,), (pn, wn, an)), yn = self, y[index]
+            cn = cn[index]
+            pn = pn[index]
+            wn = wn[index]
+            an = an[index]
 
-        init = jnp.zeros_like(jnp.outer(self.lower.q[0], y[0]))
-        _, x = jax.lax.scan(impl, init, (self, y))
-        return x
+            xn = (yn - pn @ fn) / cn
+            x.append(xn)
+            fn = an @ fn + np.outer(wn, xn)
+        # print("final value: ", x, np.asarray(x).shape)
+        return np.asarray(x)
 
     def __neg__(self) -> "LowerTriQSM":
         return LowerTriQSM(diag=-self.diag, lower=-self.lower)
@@ -388,7 +386,7 @@ class UpperTriQSM(QSM):
     def inv(self) -> "UpperTriQSM":
         return self.transpose().inv().transpose()
 
-    @jax.jit
+    
     @handle_matvec_shapes
     def solve(self, y: JAXArray) -> JAXArray:
         """Solve a linear system with this matrix
@@ -460,7 +458,7 @@ class SquareQSM(QSM):
         M = self.transpose() @ self
         return SymmQSM(diag=M.diag, lower=M.lower)
 
-    @jax.jit
+    
     def inv(self) -> "SquareQSM":
         """The inverse of this matrix"""
         (d,) = self.diag
@@ -539,7 +537,7 @@ class SymmQSM(QSM):
             diag=self.diag.scale(other), lower=self.lower.scale(other)
         )
 
-    @jax.jit
+    
     def inv(self) -> "SymmQSM":
         """The inverse of this matrix"""
         (d,) = self.diag
@@ -575,7 +573,7 @@ class SymmQSM(QSM):
             diag=DiagQSM(d=lam), lower=StrictLowerTriQSM(p=t, q=s, a=ell)
         )
 
-    @jax.jit
+    
     def cholesky(self) -> LowerTriQSM:
         """The Cholesky decomposition of this matrix
 
@@ -584,18 +582,31 @@ class SymmQSM(QSM):
         """
         (d,) = self.diag
         p, q, a = self.lower
-
-        def impl(carry, data):  # type: ignore
-            fp = carry
-            dk, pk, qk, ak = data
-            ck = jnp.sqrt(dk - pk @ fp @ pk)
+        # print("Function::cholesky")
+        # print("D: ", d)
+        # print("--//--")
+        # print("p: ", p)
+        # print("--//--")
+        # print("q: ", q)
+        # print("--//--")
+        # print("a: ", a)
+        # print("--//--")
+        init = np.zeros_like(np.outer(q[0], q[0]))
+        fp = init
+        c = []
+        w = []
+        for index in range(d.size):
+            dk, pk, qk, ak = (d[index], p[index], q[index], a[index])
+            ck = np.sqrt(dk - pk @ fp @ pk)
             tmp = fp @ ak.T
             wk = (qk - pk @ tmp) / ck
-            fk = ak @ tmp + jnp.outer(wk, wk)
-            return fk, (ck, wk)
+            fk = ak @ tmp + np.outer(wk, wk)
+            c.append(ck)
+            w.append(wk)
+            fp = fk
 
-        init = jnp.zeros_like(jnp.outer(q[0], q[0]))
-        _, (c, w) = jax.lax.scan(impl, init, (d, p, q, a))
+        c, w = np.asarray(c), np.asarray(w)
+
         return LowerTriQSM(
             diag=DiagQSM(c), lower=StrictLowerTriQSM(p=p, q=w, a=a)
         )

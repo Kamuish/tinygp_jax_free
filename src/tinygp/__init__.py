@@ -18,9 +18,8 @@ __all__ = [
     "GaussianProcess",
 ]
 
-from tinygp import kernels, noise, solvers, transforms
-from tinygp.gp import GaussianProcess
-from tinygp.tinygp_version import __version__
+from src.tinygp import kernels, noise, solvers, transforms
+from src.tinygp.gp import GaussianProcess
 
 __author__ = "Dan Foreman-Mackey"
 __email__ = "foreman.mackey@gmail.com"

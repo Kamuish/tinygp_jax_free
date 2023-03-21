@@ -14,20 +14,20 @@ __all__ = ["Distance", "L1Distance", "L2Distance"]
 
 from abc import ABCMeta, abstractmethod
 
-import jax.numpy as jnp
+import numpy as np
 
-from tinygp.helpers import JAXArray, dataclass
+from src.tinygp.helpers import dataclass
 
 
 class Distance(metaclass=ABCMeta):
     """An abstract base class defining a distance metric interface"""
 
     @abstractmethod
-    def distance(self, X1: JAXArray, X2: JAXArray) -> JAXArray:
+    def distance(self, X1: np.ndarray, X2: np.ndarray) -> np.ndarray:
         """Compute the distance between two coordinates under this metric"""
         raise NotImplementedError()
 
-    def squared_distance(self, X1: JAXArray, X2: JAXArray) -> JAXArray:
+    def squared_distance(self, X1: np.ndarray, X2: np.ndarray) -> np.ndarray:
         """Compute the squared distance between two coordinates
 
         By default this returns the squared result of
@@ -35,27 +35,27 @@ class Distance(metaclass=ABCMeta):
         can take advantage of these separate implementations to avoid
         unnecessary square roots.
         """
-        return jnp.square(self.distance(X1, X2))
+        return np.square(self.distance(X1, X2))
 
 
 @dataclass
 class L1Distance(Distance):
     """The L1 or Manhattan distance between two coordinates"""
 
-    def distance(self, X1: JAXArray, X2: JAXArray) -> JAXArray:
-        return jnp.sum(jnp.abs(X1 - X2))
+    def distance(self, X1: np.ndarray, X2: np.ndarray) -> np.ndarray:
+        return np.sum(np.abs(X1 - X2))
 
 
 @dataclass
 class L2Distance(Distance):
     """The L2 or Euclidean distance between two coordinates"""
 
-    def distance(self, X1: JAXArray, X2: JAXArray) -> JAXArray:
+    def distance(self, X1: np.ndarray, X2: np.ndarray) -> np.ndarray:
         r1 = L1Distance().distance(X1, X2)
         r2 = self.squared_distance(X1, X2)
-        zeros = jnp.equal(r2, 0)
-        r2 = jnp.where(zeros, jnp.ones_like(r2), r2)
-        return jnp.where(zeros, r1, jnp.sqrt(r2))
+        zeros = np.equal(r2, 0)
+        r2 = np.where(zeros, np.ones_like(r2), r2)
+        return np.where(zeros, r1, np.sqrt(r2))
 
-    def squared_distance(self, X1: JAXArray, X2: JAXArray) -> JAXArray:
-        return jnp.sum(jnp.square(X1 - X2))
+    def squared_distance(self, X1: np.ndarray, X2: np.ndarray) -> np.ndarray:
+        return np.sum(np.square(X1 - X2))

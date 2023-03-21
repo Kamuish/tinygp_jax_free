@@ -7,9 +7,9 @@ __all__ = ["Solver"]
 from abc import ABCMeta, abstractmethod
 from typing import Any, Optional
 
-from tinygp.helpers import JAXArray
-from tinygp.kernels.base import Kernel
-from tinygp.noise import Noise
+from src.tinygp.helpers import JAXArray
+from src.tinygp.kernels.base import Kernel
+from src.tinygp.noise import Noise
 
 
 class Solver(metaclass=ABCMeta):

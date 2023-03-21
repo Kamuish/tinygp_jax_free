@@ -12,11 +12,10 @@ __all__ = ["Transform", "Linear", "Cholesky", "Subspace"]
 from functools import partial
 from typing import Any, Callable, Sequence, Union
 
-import jax.numpy as jnp
-from jax.scipy import linalg
+from scipy import linalg
 
-from tinygp.helpers import JAXArray, dataclass
-from tinygp.kernels.base import Kernel
+from src.tinygp.helpers import dataclass
+from src.tinygp.kernels.base import Kernel
 
 
 @dataclass
@@ -32,7 +31,7 @@ class Transform(Kernel):
     transform: Callable[[Any], Any]
     kernel: Kernel
 
-    def evaluate(self, X1: JAXArray, X2: JAXArray) -> JAXArray:
+    def evaluate(self, X1: np.ndarray, X2: np.ndarray) -> np.ndarray:
         return self.kernel.evaluate(self.transform(X1), self.transform(X2))
 
 
@@ -54,19 +53,19 @@ class Linear(Kernel):
         ... )
 
     Args:
-        scale (JAXArray): A 0-, 1-, or 2-dimensional array specifying the
+        scale (np.ndarray): A 0-, 1-, or 2-dimensional array specifying the
             scale of this transform.
         kernel (Kernel): The kernel to use in the transformed space.
     """
 
-    scale: JAXArray
+    scale: np.ndarray
     kernel: Kernel
 
-    def evaluate(self, X1: JAXArray, X2: JAXArray) -> JAXArray:
-        if jnp.ndim(self.scale) < 2:
-            transform = partial(jnp.multiply, self.scale)
-        elif jnp.ndim(self.scale) == 2:
-            transform = partial(jnp.dot, self.scale)
+    def evaluate(self, X1: np.ndarray, X2: np.ndarray) -> np.ndarray:
+        if np.ndim(self.scale) < 2:
+            transform = partial(np.multiply, self.scale)
+        elif np.ndim(self.scale) == 2:
+            transform = partial(np.dot, self.scale)
         else:
             raise ValueError("'scale' must be 0-, 1-, or 2-dimensional")
         return self.kernel.evaluate(transform(X1), transform(X2))
@@ -90,19 +89,19 @@ class Cholesky(Kernel):
         ... )
 
     Args:
-        factor (JAXArray): A 0-, 1-, or 2-dimensional array specifying the
+        factor (np.ndarray): A 0-, 1-, or 2-dimensional array specifying the
             Cholesky factor. If 2-dimensional, this must be a lower
             triangular matrix, but this is not checked.
         kernel (Kernel): The kernel to use in the transformed space.
     """
 
-    factor: JAXArray
+    factor: np.ndarray
     kernel: Kernel
 
-    def evaluate(self, X1: JAXArray, X2: JAXArray) -> JAXArray:
-        if jnp.ndim(self.factor) < 2:
-            transform = partial(jnp.multiply, 1.0 / self.factor)
-        elif jnp.ndim(self.factor) == 2:
+    def evaluate(self, X1: np.ndarray, X2: np.ndarray) -> np.ndarray:
+        if np.ndim(self.factor) < 2:
+            transform = partial(np.multiply, 1.0 / self.factor)
+        elif np.ndim(self.factor) == 2:
             transform = partial(
                 linalg.solve_triangular, self.factor, lower=True
             )
@@ -112,15 +111,15 @@ class Cholesky(Kernel):
 
     @classmethod
     def from_parameters(
-        cls, diagonal: JAXArray, off_diagonal: JAXArray, kernel: Kernel
+        cls, diagonal: np.ndarray, off_diagonal: np.ndarray, kernel: Kernel
     ) -> "Cholesky":
         """Build a Cholesky transform with a sensible parameterization
 
         Args:
-            diagonal (JAXArray): An ``(ndim,)`` array with the diagonal
+            diagonal (np.ndarray): An ``(ndim,)`` array with the diagonal
                 elements of ``factor``. These must be positive, but this
                 is not checked.
-            off_diagonal (JAXArray): An ``((ndim - 1) * ndim,)`` array
+            off_diagonal (np.ndarray): An ``((ndim - 1) * ndim,)`` array
                 with the off-diagonal elements of ``factor``.
             kernel (Kernel): The kernel to use in the transformed space.
         """
@@ -131,9 +130,9 @@ class Cholesky(Kernel):
                 f"(ndim-1)*ndim/2 = {((ndim - 1) * ndim) // 2} elements in "
                 f"'off_diagonal'; got {off_diagonal.size}"
             )
-        factor = jnp.zeros((ndim, ndim))
-        factor = factor.at[jnp.diag_indices(ndim)].add(diagonal)
-        factor = factor.at[jnp.tril_indices(ndim, -1)].add(off_diagonal)
+        factor = np.zeros((ndim, ndim))
+        factor = factor.at[np.diag_indices(ndim)].add(diagonal)
+        factor = factor.at[np.tril_indices(ndim, -1)].add(off_diagonal)
         return cls(factor, kernel)
 
 
@@ -163,5 +162,5 @@ class Subspace(Kernel):
     axis: Union[Sequence[int], int]
     kernel: Kernel
 
-    def evaluate(self, X1: JAXArray, X2: JAXArray) -> JAXArray:
+    def evaluate(self, X1: np.ndarray, X2: np.ndarray) -> np.ndarray:
         return self.kernel.evaluate(X1[self.axis], X2[self.axis])

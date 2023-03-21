@@ -6,11 +6,10 @@ __all__ = ["elementwise_add", "elementwise_mul", "qsm_mul"]
 
 from typing import Optional, Tuple, TypeVar
 
-import jax
-import jax.numpy as jnp
+import numpy as np
 
-from tinygp.helpers import JAXArray
-from tinygp.solvers.quasisep.core import (
+from src.tinygp.helpers import JAXArray
+from src.tinygp.solvers.quasisep.core import (
     QSM,
     DiagQSM,
     LowerTriQSM,
@@ -66,9 +65,9 @@ def qsm_mul(a: QSM, b: QSM) -> Optional[QSM]:
 
         def calc_phi(phi, data):  # type: ignore
             a, b, q, g = data
-            return a @ phi @ b.T + jnp.outer(q, g), phi
+            return a @ phi @ b.T + np.outer(q, g), phi
 
-        init = jnp.zeros_like(jnp.outer(lower_a.q[0], upper_b.q[0]))
+        init = np.zeros_like(np.outer(lower_a.q[0], upper_b.q[0]))
         args = (lower_a.a, upper_b.a, lower_a.q, upper_b.q)
         _, phi = jax.lax.scan(calc_phi, init, args)
 
@@ -79,9 +78,9 @@ def qsm_mul(a: QSM, b: QSM) -> Optional[QSM]:
 
         def calc_psi(psi, data):  # type: ignore
             a, b, q, g = data
-            return a.T @ psi @ b + jnp.outer(q, g), psi
+            return a.T @ psi @ b + np.outer(q, g), psi
 
-        init = jnp.zeros_like(jnp.outer(upper_a.q[-1], lower_b.p[-1]))
+        init = np.zeros_like(np.outer(upper_a.q[-1], lower_b.p[-1]))
         args = (upper_a.a, lower_b.a, upper_a.p, lower_b.p)
         _, psi = jax.lax.scan(calc_psi, init, args, reverse=True)
 
@@ -151,14 +150,14 @@ def qsm_mul(a: QSM, b: QSM) -> Optional[QSM]:
         u += [upper_b.p] if upper_b is not None else []
 
         if lower_a is not None and lower_b is not None:
-            ell = jnp.concatenate(
+            ell = np.concatenate(
                 (
-                    jnp.concatenate(
-                        (lower_a.a, jnp.outer(lower_a.q, lower_b.p)), axis=-1
+                    np.concatenate(
+                        (lower_a.a, np.outer(lower_a.q, lower_b.p)), axis=-1
                     ),
-                    jnp.concatenate(
+                    np.concatenate(
                         (
-                            jnp.zeros(
+                            np.zeros(
                                 (lower_b.a.shape[0], lower_a.a.shape[0])
                             ),
                             lower_b.a,
@@ -178,19 +177,19 @@ def qsm_mul(a: QSM, b: QSM) -> Optional[QSM]:
             )
 
         if upper_a is not None and upper_b is not None:
-            delta = jnp.concatenate(
+            delta = np.concatenate(
                 (
-                    jnp.concatenate(
+                    np.concatenate(
                         (
                             upper_a.a,
-                            jnp.zeros(
+                            np.zeros(
                                 (upper_a.a.shape[0], upper_b.a.shape[0])
                             ),
                         ),
                         axis=-1,
                     ),
-                    jnp.concatenate(
-                        (jnp.outer(upper_b.q, upper_a.p), upper_b.a), axis=-1
+                    np.concatenate(
+                        (np.outer(upper_b.q, upper_a.p), upper_b.a), axis=-1
                     ),
                 ),
                 axis=0,
@@ -208,12 +207,12 @@ def qsm_mul(a: QSM, b: QSM) -> Optional[QSM]:
         return (
             DiagQSM(d=lam) if lam is not None else None,
             StrictLowerTriQSM(
-                p=jnp.concatenate(t), q=jnp.concatenate(s), a=ell
+                p=np.concatenate(t), q=np.concatenate(s), a=ell
             )
             if len(t) and len(s) and ell is not None
             else None,
             StrictUpperTriQSM(
-                p=jnp.concatenate(u), q=jnp.concatenate(v), a=delta
+                p=np.concatenate(u), q=np.concatenate(v), a=delta
             )
             if len(u) and len(v) and delta is not None
             else None,

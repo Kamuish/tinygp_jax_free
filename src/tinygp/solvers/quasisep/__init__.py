@@ -74,4 +74,4 @@ building blocks.
 
 __all__ = ["QuasisepSolver"]
 
-from tinygp.solvers.quasisep.solver import QuasisepSolver
+from src.tinygp.solvers.quasisep.solver import QuasisepSolver

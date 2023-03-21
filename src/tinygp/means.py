@@ -15,10 +15,8 @@ __all__ = ["Mean", "Conditioned"]
 
 from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
-import jax
+from src.tinygp.helpers import JAXArray, dataclass
 
-from tinygp.helpers import JAXArray, dataclass
-from tinygp.kernels.base import Kernel
 
 
 @dataclass
@@ -45,41 +43,3 @@ class Mean:
             return self.value(X)
         return self.value
 
-
-@dataclass
-class Conditioned:
-    """The mean of a process conditioned on observed data
-
-    Args:
-        X: The coordinates of the data. alpha: The value :math:`L^-1\,y` where L
-        is ``scale_tril`` and y is the
-            observed data.
-        scale_tril: The lower Cholesky factor of the base process' kernel
-            matrix.
-        kernel: The predictive kerenl; this will generally be the kernel from
-            the kernel used by the original process.
-        include_mean: If ``True``, the predicted values will include the mean
-            function evaluated at ``X_test``.
-        mean_function: The mean function of the base process. Used only if
-            ``include_mean`` is ``True``.
-    """
-
-    X: JAXArray
-    alpha: JAXArray
-    kernel: Kernel
-    include_mean: bool
-    mean_function: Optional[Mean] = None
-
-    if TYPE_CHECKING:
-
-        def __init__(self, *args: Any, **kwargs: Any) -> None:
-            pass
-
-    def __call__(self, X: JAXArray) -> JAXArray:
-        Ks = jax.vmap(self.kernel.evaluate, in_axes=(None, 0), out_axes=0)(
-            X, self.X
-        )
-        mu = Ks @ self.alpha
-        if self.include_mean and self.mean_function is not None:
-            mu += self.mean_function(X)
-        return mu

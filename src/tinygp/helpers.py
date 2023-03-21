@@ -7,11 +7,10 @@ __all__ = ["JAXArray", "dataclass", "field"]
 import dataclasses
 from typing import Any, Callable, Tuple, Type, TypeVar, Union
 
-import jax
-import jax.numpy as jnp
+import numpy as np
 import numpy as np
 
-JAXArray = Union[np.ndarray, jnp.ndarray]
+JAXArray = Union[np.ndarray, np.ndarray]
 
 # This section is based closely on the implementation in flax:
 #
@@ -64,9 +63,9 @@ def dataclass(clz: Type[Any]) -> Type[Any]:
         kwargs = dict(meta_args + data_args)
         return data_clz(**kwargs)
 
-    jax.tree_util.register_pytree_node(
-        data_clz, iterate_clz, clz_from_iterable
-    )
+    # jax.tree_util.register_pytree_node(
+    #     data_clz, iterate_clz, clz_from_iterable
+    # )
 
     # Hack to make this class act as a tuple when unpacked
     data_clz.iter_elems = lambda self: iterate_clz(self)[0].__iter__()

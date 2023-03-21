@@ -19,37 +19,15 @@ __all__ = [
     "Sum",
     "Product",
     "Constant",
-    "DotProduct",
-    "Polynomial",
-    "Stationary",
-    "Exp",
-    "ExpSquared",
-    "Matern32",
-    "Matern52",
-    "Cosine",
-    "ExpSineSquared",
-    "RationalQuadratic",
 ]
 
-from tinygp.kernels import quasisep
-from tinygp.kernels.base import (
+from src.tinygp.kernels import quasisep
+from src.tinygp.kernels.base import (
     Conditioned,
     Constant,
     Custom,
-    DotProduct,
     Kernel,
-    Polynomial,
     Product,
     Sum,
 )
-from tinygp.kernels.distance import Distance, L1Distance, L2Distance
-from tinygp.kernels.stationary import (
-    Cosine,
-    Exp,
-    ExpSineSquared,
-    ExpSquared,
-    Matern32,
-    Matern52,
-    RationalQuadratic,
-    Stationary,
-)
+from src.tinygp.kernels.distance import Distance, L1Distance, L2Distance

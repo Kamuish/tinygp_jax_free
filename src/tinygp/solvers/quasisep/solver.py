@@ -6,15 +6,14 @@ __all__ = ["QuasisepSolver"]
 
 from typing import TYPE_CHECKING, Any, Optional
 
-import jax
-import jax.numpy as jnp
+
 import numpy as np
 
-from tinygp.helpers import JAXArray, dataclass
-from tinygp.kernels.base import Kernel
-from tinygp.noise import Noise
-from tinygp.solvers.quasisep.core import LowerTriQSM, SymmQSM
-from tinygp.solvers.solver import Solver
+from src.tinygp.helpers import dataclass
+from src.tinygp.kernels.base import Kernel
+from src.tinygp.noise import Noise
+from src.tinygp.solvers.quasisep.core import LowerTriQSM, SymmQSM
+from src.tinygp.solvers.solver import Solver
 
 
 @dataclass
@@ -29,7 +28,7 @@ class QuasisepSolver(Solver):
     usual constructor.
     """
 
-    X: JAXArray
+    X: np.ndarray
     matrix: SymmQSM
     factor: LowerTriQSM
 
@@ -37,7 +36,7 @@ class QuasisepSolver(Solver):
     def init(
         cls,
         kernel: Kernel,
-        X: JAXArray,
+        X: np.ndarray,
         noise: Noise,
         *,
         covariance: Optional[Any] = None,
@@ -59,13 +58,11 @@ class QuasisepSolver(Solver):
                 and you can pass ``assume_sorted=True`` to get the best
                 performance.
         """
-        from tinygp.kernels.quasisep import Quasisep
+        from src.tinygp.kernels.quasisep import Quasisep
 
         if covariance is None:
             if TYPE_CHECKING:
                 assert isinstance(kernel, Quasisep)
-            if not assume_sorted:
-                jax.debug.callback(_check_sorted, kernel.coord_to_sortable(X))
             matrix = kernel.to_symm_qsm(X)
             matrix += noise.to_qsm()
         else:
@@ -75,30 +72,30 @@ class QuasisepSolver(Solver):
         factor = matrix.cholesky()
         return cls(X=X, matrix=matrix, factor=factor)
 
-    def variance(self) -> JAXArray:
+    def variance(self) -> np.ndarray:
         return self.matrix.diag.d
 
-    def covariance(self) -> JAXArray:
+    def covariance(self) -> np.ndarray:
         return self.matrix.to_dense()
 
-    def normalization(self) -> JAXArray:
-        return jnp.sum(jnp.log(self.factor.diag.d)) + 0.5 * self.factor.shape[
+    def normalization(self) -> np.ndarray:
+        return np.sum(np.log(self.factor.diag.d)) + 0.5 * self.factor.shape[
             0
         ] * np.log(2 * np.pi)
 
     def solve_triangular(
-        self, y: JAXArray, *, transpose: bool = False
-    ) -> JAXArray:
+        self, y, *, transpose: bool = False
+    ) :
         if transpose:
             return self.factor.transpose().solve(y)
         else:
             return self.factor.solve(y)
 
-    def dot_triangular(self, y: JAXArray) -> JAXArray:
+    def dot_triangular(self, y):
         return self.factor @ y
 
     def condition(
-        self, kernel: Kernel, X_test: Optional[JAXArray], noise: Noise
+        self, kernel: Kernel, X_test: Optional[np.ndarray], noise: Noise
     ) -> Any:
         """Compute the covariance matrix for a conditional GP
 
@@ -137,7 +134,7 @@ class QuasisepSolver(Solver):
         return Kss - A.transpose() @ A
 
 
-def _check_sorted(X: JAXArray) -> None:
+def _check_sorted(X: np.ndarray) -> None:
     if np.any(np.diff(X) < 0.0):
         raise ValueError(
             "Input coordinates must be sorted in order to use the QuasisepSolver"
